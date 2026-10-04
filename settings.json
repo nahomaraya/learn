@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "//": "md-log: three hooks, one script. PreToolUse writes the question BEFORE the popup renders so a LaTeX-heavy question can be read rendered in Obsidian; PostToolUse appends the answer; Stop flushes the turn's prose. The script no-ops unless /md-log has linked a file.",
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/md-log.mjs" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/md-log.mjs" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/md-log.mjs" }]
+      }
+    ]
+  },
+
+  "permissions": {
+    "allow": [
+      "Bash(node .claude/scripts/render-mermaid.mjs:*)",
+      "Bash(node .claude/scripts/render-svg.mjs:*)",
+      "Bash(node .claude/scripts/md-log.mjs:*)"
+    ]
+  }
+}

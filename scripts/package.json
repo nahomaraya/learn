@@ -1,0 +1,13 @@
+{
+  "name": "learn-visual-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Render backends for the mermaid-maker and svg-maker subagents. Replaces the pi visual-tools extension.",
+  "comment": "puppeteer is a PEER dependency of mermaid-cli and is not auto-installed, so it is declared directly here. puppeteer.config.cjs skips its bundled Chromium download: render-mermaid.mjs points puppeteer at the Chrome already installed on the machine via PUPPETEER_EXECUTABLE_PATH.",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.4.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "puppeteer": "^24.0.0"
+  }
+}
