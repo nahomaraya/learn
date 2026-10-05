@@ -16,3 +16,12 @@ __pycache__/
 # Runtime state
 .memory/
 *.log
+
+# md-log: which file each session is linked to, and how far it has been flushed
+.md-log-state.json
+
+# Maker subagents' diagram drafts (published PNGs go to <project>/viz instead)
+.scratch/
+
+# Local settings overrides
+settings.local.json
