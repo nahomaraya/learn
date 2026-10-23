@@ -27,7 +27,7 @@ Write your SVG source to `.claude/.scratch/<slug>.svg`. That folder is gitignore
 
 1. **Plan the coordinate space.** Choose a `viewBox` and sketch where each element sits before drawing. Leave margins so nothing touches the edge. Keep it to ONE idea and few elements.
 
-2. **Write the source** to `.claude/.scratch/<slug>.svg` with `Write`: a complete `<svg>…</svg>` with explicit `width`/`height` (or viewBox), `font-family="sans-serif"`, and font sizes large enough to read when embedded. The renderer composites onto white, so you don't need to draw a background rect.
+2. **Write the source** to `.claude/.scratch/<slug>.svg` with `Write`: a complete `<svg>…</svg>` with explicit `width`/`height` AND a matching `viewBox`, `font-family="sans-serif"`, and font sizes large enough to read when embedded. The renderer composites onto white, so you don't need to draw a background rect.
 
 3. **Render a preview:**
    ```bash
@@ -41,7 +41,7 @@ Write your SVG source to `.claude/.scratch/<slug>.svg`. That folder is gitignore
    - Is anything clipped by the viewBox, too small to read, or cramped?
    - Would the learner instantly read the intended idea from this picture alone?
 
-5. **Iterate** with `Edit` on the `.svg` and re-render until correct and clean. If the render command exits non-zero it prints the source and the error — read it, fix, re-render.
+5. **Iterate** and re-render until correct and clean. `Edit` is for a one-spot fix — its `old_string` must match exactly once; for anything bigger (new elements, a restructured layout) `Write` the whole document again. If the render command exits non-zero it prints the source and the error — read it, fix, re-render. **Never publish an SVG whose final version you haven't looked at** — every edit, however small, gets a fresh render and a fresh look.
 
 6. **Publish** once it is correct and clean:
    ```bash
@@ -51,7 +51,7 @@ Write your SVG source to `.claude/.scratch/<slug>.svg`. That folder is gitignore
 
 ## Your output
 
-End your response with EXACTLY the `RESULT:` block the publish command printed (nothing after it):
+Start your final message with 1–2 sentences of notes for the teacher — what the figure shows, any caveat — never the SVG source. Then end with EXACTLY the `RESULT:` block the publish command printed (nothing after it):
 
 ```
 RESULT:

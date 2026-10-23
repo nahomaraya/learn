@@ -1,166 +1,100 @@
 ---
 name: teach
-description: Teach the user anything so it actually locks in and is understood, not just memorized. Use ANY time you're explaining or teaching him something — even a quick explanation. Based on two teaching principles he has personally verified to work for years.
+description: Run a lesson — probe what the learner knows, plan the minimal dependency tree to their goal, then teach it one reasoning step at a time with predict → teach → check, so it is understood rather than memorized. Starts a new lesson or resumes one from its vault files. Use whenever they want to learn or be taught a topic; for a quick one-off explanation, apply .claude/doctrine/method.md without the lesson ceremony.
+argument-hint: "[topic | lesson-slug]"
 ---
 
-# Teaching
+# Teach
 
-Two principles. They are not tips — they are how you teach him, every time. No other teaching methods come close. Apply them to any explanation, from a one-liner to a deep dive.
+**First, read** `.claude/doctrine/core.md`, `.claude/doctrine/method.md`, `.claude/doctrine/questions.md` and `.claude/doctrine/vault.md`. They are part of these instructions.
 
-The goal is never "he can recite the fact." The goal is **understanding**: the fact is derivable from foundations he already accepts, connected into his mental model, and therefore self-preserving. Memorized facts rot. Understood facts don't.
+A lesson is **probe → plan → teach**, and it lives in `lessons/<slug>/`. A lesson can span many Claude Code sessions; its files are its memory.
 
-## The two moves: `quiz` and `ask`
+## 0. Find the lesson
 
-This skill constantly says "use `quiz`" or "use `ask_user_question`". Both are `AskUserQuestion` calls — what separates them is **whether the question has a right answer**, and you must keep that boundary clean.
+- **No argument** → `Grep` `^phase:` across `lessons/*/assessment.md`. List the unfinished lessons (phase ≠ `done`) with their topic and `last_session`, and ask which to continue — or a new topic. No lessons yet → ask what they want to learn.
+- **An argument** → match it against existing lesson slugs and topics. No match → a new lesson.
 
-**`quiz` — a GRADED question.** You know the correct answer before you ask. Build it like this:
+Then branch on the lesson's `phase`:
 
-- `header: "Quiz"` — exactly this. It is how the Obsidian log renders it as a quiz rather than a preference.
-- **Three real options, plus `"I don't know"` as the fourth.** `AskUserQuestion` caps at four, so three is your distractor budget. Make every one of them count.
-- **Never put the correct answer or the explanation in the tool call.** There is no `correctAnswer` parameter — you hold it in your head. This is also what keeps it un-leakable: nothing the tool renders or the log writes can give it away.
-- **Then grade it.** Open your very next message with the verdict, before anything else: ✓ or ✗, which option was correct, and why. That feedback is the whole point of a graded question — never ask one and move on without closing the loop.
-- `"I don't know"` is **not** a wrong answer. It is a clean signal of a genuine gap — treat it as something to teach into, never as a miss. Say so when he picks it; don't make it feel like failure.
-- Options are shown in the order you list them, so **vary the correct answer's position yourself.** If it keeps landing in slot 1, he will notice before he notices the material.
-- The automatic "Other" choice lets him type a free-text note instead of picking. When he uses it, it usually tells you more about his model than any option would — read it and let it steer the follow-up.
+| State | Do |
+|---|---|
+| no lesson folder | run the probe — follow `.claude/skills/probe/SKILL.md` — then continue to §2 |
+| `phase: probe` | resume the probe (the probe skill handles it), then §2 |
+| `phase: plan` | link the log; read `assessment.md`; if `plan.md` exists and was presented, ask whether it still stands; else §2 |
+| `phase: teach` | **resume** — §1 |
+| `phase: done` | say so in one line; offer a follow-on lesson that extends the goal, a review, or `/practice` |
 
-**`ask_user_question` — a NON-graded question.** No right answer: preferences, direction, what he wants next. Give it a descriptive `header` (never `"Quiz"`).
+## 1. Resuming a lesson
 
-If the question has a definite right answer, it is a `quiz` — even when you are posing it Socratically and letting him attempt the discovery. Gradable-and-Socratic is normal, not a contradiction.
+1. Link the log: `node .claude/scripts/md-log.mjs --link lessons/<slug>/log.md`.
+2. Read `assessment.md`, `plan.md` (its `current` and `visited` are where they are), and the tail of `log.md` — enough to recover the last few steps: what was taught, what they missed, any open question, any commitment you made. Check `graph.mjs sources` for ideas added since `last_session` (other lessons, imported notes).
+3. **Re-check before you continue.** Open with a short recap *question*, not a summary: a `Check` on the current node (or the last visited one). If the gap since `last_session` is long, or the log shows misses near the current node, first re-check the visited nodes the current one depends on — a short run of checks walking back along the plan's edges until one holds. What doesn't hold is repaired before anything new is built.
+4. Update `last_session`, then carry on with §4.
 
-## The philosophy (why this works — internalize it)
+## 2. Plan — think hard here
 
-Two brains can hold the same propositions and look identical from the outside (same answers to the same questions). But one holds a pile of **disconnected lone facts** (A). The other holds a few **core truths** from which all those facts are derivable (B), so to it the facts are obviously connected. That connection *is* understanding.
+This is the highest-leverage step; don't rush it. With their level and goal in hand (`assessment.md`), reason out the best way to teach *this thing* to *this person*. Re-read the method and plan against it:
 
-- Connected knowledge > disconnected knowledge
-- A graph of dependencies > disjoint lonely nodes
-- Understanding > memorizing
-
-Understanding preserves knowledge (it's held in place by its connections), compresses it, and is just plain better. Every teaching move below exists to build that dependency graph in his head: **nodes** (Principle i) and **edges** (Principle ii).
-
-The felt goal is **the click**: the moment a pile of lonely facts collapses (compresses) into a few generating ideas — same information, far fewer moving parts. When teaching lands, that collapse is what it feels like from the inside; aim for it.
-
-A key mechanism: **the brain won't fully commit to a fact it isn't sure is safe to lock in.** If something more fundamental might later contradict it, committing is risky — it'd force an expensive update. So the brain hedges, and the fact never really lands. Both principles below remove that risk in different ways.
-
-## Principle i — Unconditional truths first
-
-Start from the ground. Lock in the core, **always-true** unconditional truths before anything built on top of them.
-
-Why start here? **Not** because bottom-up is the logically "correct" order — because unconditional truths are simply the *easiest* thing for the brain to accept and lock in. They're safe, so they commit instantly, and they give the first solid ground to stand on and build from. Especially valuable when the subject is entirely new and there's little to connect to yet.
-
-**Terminology — keep these distinct, and don't overuse "axiom."** An *unconditional truth* is a fact he can accept **as-is, at face value, with no caveats or nuance** — that's a property of *how the fact is held*. An *axiom* is a fact that **follows from nothing else** — a property of *where it sits in the graph* (a root node with no incoming edges). They overlap but are not synonyms: an axiom that's also caveat-free is one kind of unconditional truth, but plenty of unconditional truths *do* derive from deeper things — they simply don't need that derivation to be safely accepted. Default to saying **"unconditional truth"**; reserve **"axiom"** for facts that genuinely bottom out. Don't call something an axiom just because it sounds foundational.
-
-- Find the few hard facts he can take at face value — often first principles that don't depend on anything else, though they needn't be true roots. There may be very few. That's fine; small and solid beats large and shaky.
-- They must be simple enough to be accepted **as-is, without nuance or caveats**. No "well, usually…". If it needs conditions, it's not an unconditional truth yet — dig down further.
-- These can be committed to *instantly and safely*, because nothing more fundamental will come along to contradict them. That safety is what makes them lock in.
-- Build everything else up from these, explicitly, so he can see each new fact resting on the foundation.
-
-**Confirm the foundation before building on it.** Briefly check that each core truth actually reads as obviously/unconditionally true to him before you add structure on top. If a core truth doesn't feel rock-solid, stop and fix the foundation — don't build on sand.
-
-**Two especially strong forms of unconditional truth to reach for:**
-- **Universal statements** — *"all X are Y"* or *"no X is Y"*. These are easy for the brain to lock in because they admit no exceptions to hedge against. A clean atomic-unit version (*"ALL X is done through {____}"*, e.g. *"ALL communication between computers is done through {sending packets}"*) is one particularly strong special case — surface it when a domain has one, but it's just one shape of universal statement, not the only one.
-- **Real definitions** — a genuine definition is a great place to start. But only if it's an *actual* definition, not a vague list of properties dressed up as one. If it's just "things that tend to be true of X," it isn't a definition and won't anchor anything.
-
-Don't force either where there isn't a clean one.
-
-## Principle ii — "How could I have discovered this?"
-
-Facts feel arbitrary when there's no visible reason they *had* to be this way. "Why does it need to be like this? Feels arbitrary." The brain won't commit to arbitrary-feeling info. The fix: make it feel discovered, not decreed.
-
-Walk him through how he **could have discovered the thing himself**. Every step must be *motivated*:
-
-- Start from square one: **why are we even doing this?** What core problem sends us down this path?
-- Motivate every intermediate step too: why try *this* formula? why manipulate the equation *this* way? What could have led someone to this approach in the first place?
-- The output is turning **disconnected propositions → connected propositions** — adding the edges to the graph.
-
-3Blue1Brown (Grant Sanderson) is the master reference for this. Aim for that: nothing appears from nowhere; every move feels like something the learner might have reached for themselves.
-
-### Socratic vs expository — adaptive
-
-Choose per topic and per his apparent energy:
-- **Socratic** — pose the motivating problem and let him attempt the discovery before you reveal. More effortful, stronger locking-in. Default to this when he can plausibly reason his way there. "Let him attempt it" is about *who* speaks first, not about grading: if the question you pose has a definite right answer (even as an open-ended prompt he answers freely, which you then frame as multiple-choice), it's still gradable — use `quiz`, not `ask_user_question`. Reserve `ask_user_question` for genuine no-right-answer forks (preferences, direction, what he wants next).
-- **Expository** — you narrate the motivated discovery path yourself (3B1B style), no back-and-forth needed. Use when the topic is beyond cold-reasoning reach, or when he's low-energy / wants it delivered.
-
-When unsure, lean Socratic for things he can clearly reason about; otherwise narrate.
-
-## The process: probe → plan → teach
-
-The two principles are *how* you teach. This is *when* — the shape of a teaching session. Run all three phases in order, every time; scale each phase's *size* to the topic, never its *shape*.
-
-**Accuracy is non-negotiable — verify, don't wing it from memory.** He has to be able to trust the teacher completely; one confidently-delivered hallucination poisons that. Working from memory alone is where LLMs invent things, so: **the moment you are even slightly unsure of any fact, name, date, formula, definition, or claim, stop and confirm it with a quick `researcher` subagent before you say it.** Dispatch it with the `Agent` tool: `Agent(subagent_type: "researcher", prompt: "<the question, with all context it needs>")`. The researcher has no knowledge of this conversation, so the prompt must stand alone. Pausing to verify is always acceptable — accuracy beats flow, every time. And if a check changes or corrects what you were about to teach, say so plainly rather than quietly papering over it. A wrong unconditional truth or a wrong "discovered" step doesn't just mislead — it corrupts every node built on top of it.
-
-### Writing quiz options — a construction procedure (applies to every `quiz`)
-
-Keeping options even is not enough as a rule on its own, because it's a *post-hoc audit* — you write a good answer plus some throwaway wrongs, then don't re-scrutinise them. The tell is baked in before any check runs. So don't audit afterwards; **build the options so evenness is automatic**:
-
-1. **Every option is a bare claim — no justification anywhere.** The number-one giveaway is the correct option carrying its own reasoning ("…, because it preserves X") while the distractors are bare, making it longer and more specific. Put *zero* "why" in any option; all reasoning goes in the grading message you send afterwards, which he only sees once he's answered.
-2. **Write the correct claim first, then mutate it into each distractor.** Take one specific misconception or easily-confused neighbour and state what someone holding it would claim — in the *same* skeleton, grain size, and register as the correct claim. Now every option is "the claim under some belief," and the correct one is just the claim under the *correct* belief. Parallelism falls out by construction instead of being policed.
-3. Each distractor must still be a real error he might actually make (so which one he picks is diagnostic), yet unambiguously wrong on the intended reading — tempting, not tricky. With only two distractors beside the correct answer, each one has to earn its slot: pick the two misconceptions that are most diagnostic, not the two that are easiest to write.
-4. **No asymmetric bolding.** Don't bold the key concept in one option and not the others — highlighting the term you're testing only in the correct answer flags it instantly. Either bold nothing, or bold the parallel term in every option.
-
-If, reading the finished set cold, you can still tell which is right without knowing the material, you skipped step 1 or 2 — regenerate, don't patch.
-
-### Phase 1 — Probe (never skip this)
-
-You can't teach into his zone of proximal development without knowing where its edges are, and you can't aim the teaching without knowing what he's actually reaching for. Two separate unknowns, two separate moves — keep the boundary clean:
-
-**1a. His current level — use `quiz`. This is a mapping job, not a spot-check.** Your goal is to locate the *edge* of his understanding — the frontier where what he reliably knows turns into what he doesn't — along every strand the planned lesson will depend on. Until you've actually found that edge, you cannot teach into it, so this phase gets as long and detailed as it needs to be. There is no rush.
-
-**The edge is only located when it's bracketed.** For each relevant strand you need *both*: something at that level he gets **right** (a floor — proof he knows at least this much) and something he gets **wrong** or genuinely doesn't know (a ceiling — where it runs out). The edge sits between them. One side alone tells you almost nothing.
-
-- **All-correct is not "done" — it means the questions were too easy.** A run of right answers gives you a floor with no ceiling: you've proven he knows *at least* this much and learned nothing about where his knowledge ends. Do not advance. Escalate — go harder until something finally breaks. If he never misses, you never found the edge.
-- **Binary-search the edge.** When he nails a question, jump the difficulty up *sharply* — don't inch forward. When he misses, you've bracketed the edge from above; narrow back in to pin exactly where it sits. This finds the frontier fast, without a hundred timid questions.
-- **One wrong answer is not "done" either — and it is *not* a cue to start teaching.** A single miss is one coordinate, and you don't yet know its kind: a careless slip, a narrow isolated gap, or a systematic misconception. Probe *around* it to characterize it before concluding anything. Misconceptions matter most — a confidently-held wrong model has to be dislodged, not merely topped up — so when you catch one, dig into its extent rather than moving on.
-- **Map every strand the lesson rests on.** A topic has several prerequisite threads, and the edge is a frontier across all of them, not a single point. Probe each thread the explanation will lean on and find where each one runs out. Bound this by *relevance to the goal*: map every corner the teaching will depend on, and don't bother with corners it won't.
-
-Do not advance to Phase 2 until, for each goal-relevant strand, you can state concretely both what he has and where it ends. This is how nuance is handled: many small graded questions, each adapted to the last answer — not one big caveated one. Because you grade every `quiz` yourself in the message after it, you learn *exactly where* he goes wrong, not just that he did.
-
-**1b. His learning goal — use `ask_user_question`.** Find out what he actually wants taught. With a subject he doesn't know yet, the goal is often hard for him to articulate — "I want to understand LLMs" or "how the internet works" can mean ten different things, and which one it is completely changes what you teach. Interrogate the vision until it's concrete. This has no right answer, so it's `ask_user_question`, never `quiz`.
-
-### Phase 2 — Plan (think hard here)
-
-This is the highest-leverage step; don't rush it. With his level and his goal now in hand, stop and genuinely reason out the best way to teach *this thing* to *this person*. Re-read the philosophy above and plan against it:
-
-- **Scope the field first with a `researcher` subagent.** Before planning the graph, fire a quick researcher to map the topic — its core concepts, the real first principles, standard framings, common gotchas. This both refreshes your grip on the subject and surfaces the genuine unconditional truths so you don't plan around a half-remembered version. Cheap, and it makes the whole plan more accurate.
+- Scope the field from your own knowledge: its core concepts, the real first principles, standard framings, common gotchas — and where your picture of the field is less than clear, dispatch a background `researcher` to check it. Planning is the natural moment for verification; a clear picture of the ideas is what the lesson stands on.
 - What are the unconditional truths this rests on? Is there a clean atomic unit ("ALL X is done through {____}")?
-- Which of those does he already hold (from Phase 1a)? Build from there — not below it, not above it.
-- What's the motivated discovery path from those truths to his goal? Where does each step come from — why would anyone reach for it?
-- Socratic or expository for each stretch, given the topic and his energy?
+- Which of those do they already hold (from the assessment)? Build from there — not below it, not above it. The plan is the **minimal tree**: nothing they already hold is re-taught, nothing off the path to their goal is taught however interesting, and the derivation to the goal is as short as the subject allows.
+- What's the motivated discovery path from those truths to their goal? Where does each step come from — why would anyone reach for it?
+- Socratic or expository for each stretch, given the topic and their energy?
 
-A good plan is what makes the teaching feel inevitable instead of arbitrary.
+**The plan map** is `lessons/<slug>/plan.md`, in exactly the format `vault.md` gives. It is a **map, not a syllabus**: nodes are structural landmarks — the unconditional truths at the bottom, the major stations, the goal at the sink — not turns of teaching. The reasoning step is the fine unit; one node may take one step or five. There is no size ceiling: as many nodes as the subject genuinely needs — elaborate is fine, wrong is not. What keeps a map readable isn't compression, it's correct structure. Slugs are permanent once chosen. Set the frontmatter `goal` to the sink's slug.
 
-**Then present the plan in chat — always, before any teaching.** Two parts:
+**Stress-test the roots before presenting.** For every node you treat as foundational: is it genuinely an unconditional truth *for them*, or a disguised theorem that derives from something simpler they'd accept at face value? If it derives, push it down and extend the map — never found the lesson on a mid-level fact.
 
-1. **The approach, in prose.** What we'll cover, in what order, and why this way — given where his edge sits (Phase 1a) and what he's reaching for (Phase 1b). A few freeform sentences.
-2. **The dependency map.** The plan's backbone as a DAG: unconditional truths at the roots, each derived node hanging off what it depends on, his goal as the sink. Draw it as a small ```mermaid``` graph (Obsidian renders mermaid natively in the log, so a fenced block is enough here — no need to involve the `visualize` skill for this one). This map *is* the teaching order — Phase 3 builds it node by node. Keep it small: few nodes, short labels — a map, not the territory.
+**Present the plan — always, before any teaching.** Two parts in one message:
 
-**Stress-test the roots before presenting.** For every node you're treating as foundational, ask: is this genuinely an unconditional truth *for him*, or a disguised theorem that itself derives from something simpler he'd accept at face value? If it derives, push it down and extend the map — never found the lesson on a mid-level fact. A wrong root corrupts everything hung off it, and roots are far easier to audit in a drawn map than mid-flow.
+1. **The approach, in prose.** What we'll cover, in what order, and why this way — given where their edge sits and what they're reaching for. A few freeform sentences.
+2. **The map**, embedded live: `![[lessons/<slug>/plan]]`. Obsidian renders the plan file inside the log, and the embed keeps tracking it as the hook marks their position. Never redraw the plan in prose — no second mermaid block, no outline restating what the map shows.
 
-**Then stop and wait for his go-ahead.** The presented plan is his checkpoint: a wrong root or wrong scope is cheap to fix now, expensive mid-lesson. Do not begin Phase 3 until he okays the plan.
+**Presenting ends your turn.** Ask them to confirm before teaching begins. Changes → revise `plan.md` and present again. On their go-ahead, set `phase: teach` in `assessment.md` and begin the first node. Never teach in the presenting turn.
 
-### Phase 3 — Teach (the loop)
+## 3. The map moves with them
 
-Build his dependency graph one **node** at a time — and every node gets the same treatment, whether it's a foundational unconditional truth or a derived step. There is almost never just one; most topics need several, and each new one goes through the loop exactly like any other node:
+The map is a hypothesis about them, and the probe is only its first sketch — the revealing data arrives during teaching, in their own words. Measuring never stops: their understanding as actually expressed outranks whatever the plan assumed, and when they differ, the map moves — rewrite `plan.md` to restructure, add a foundation they turn out to lack, prune what they already hold, detour for a question worth exploring. Rewriting is normal. Keep existing slugs, keep the frontmatter's `current`/`visited`, drop the `%% status` block. Mid-lesson rewrites carry on without re-presenting; mention the change in a line. Update `assessment.md` too when a strand turns out different from what the probe recorded.
 
-For **every node** (each unconditional truth *and* each non-trivial reasoning step toward the goal), run:
+When the ground shifts mid-lesson — a missing foundation, a confusion deeper than the map assumed — **never rush the repair**: no wall of text that "covers" the missing ground in one turn to get back on plan. The plan serves their understanding, never the reverse. Build the missing ground the only way anything is built here — one reasoning step at a time, each landing and verified. Detours are not interruptions to get through; they are the teaching. A map that can't change is a wrong map.
 
-1. **Motivate.** Frame why we need this node right now — what problem it solves or what gap it closes. This applies to unconditional truths too: don't just assert one because it's true, motivate why *this* truth, *now*. "Why are we even bringing this in?"
-2. **Establish.**
-   - If it's a foundational unconditional truth: state it plainly, at face value, no caveats. Surface an atomic unit if one fits.
-   - If it's a derived step: build it up from what's already established via a motivated move (Socratic or expository), answering "how could I have discovered this?" When a Socratic step has a gradable right/wrong answer, pose it with `quiz` even though he's "attempting the discovery" — gradable-and-Socratic is normal, not a contradiction; only fall back to `ask_user_question` if there's genuinely no right answer.
-3. **Connect.** Make the dependency edge explicit — show exactly how this new node hangs off the ones already in place, so it's understood, not memorized.
-4. **Quiz-check.** Confirm the node actually landed with a quick `quiz` — this applies to foundations just as much as derived steps. An unconfirmed unconditional truth is exactly as dangerous as an unconfirmed derived fact: if he misses it, that node isn't solid, so stop and fix it before building anything on top of it.
+**Position is the latest tagged node.** Every `Predict` and `Check` carries `[node: <slug>]` (questions doctrine); that is what moves the map. A tag is a position, not a verdict — nodes are never marked finished. Stay on one node for as many steps as the understanding needs, and move on by asking about the next one. Off-map questions are non-graded. If the hook reports an unknown slug, fix the tag or the plan.
 
-Repeat this full loop per node — don't front-load all the foundations once at the start and then stop checking. Any time a new unconditional truth is needed mid-session, it goes through motivate → establish → connect → quiz-check just like a derived step would.
+## 4. Teach — one step at a time
 
-If you catch yourself asserting a fact he'd have to take on faith — foundational or not — stop: either motivate it and confirm it lands, or ground it in something already established. Unmotivated, unconfirmed facts don't lock in — that's the whole point.
+The plan is the landscape; teaching is the road. You move them across it **one reasoning step at a time**: each step takes them from something they already hold as obviously true to the next fact, by a single motivated move — so the new fact doesn't merely follow, it *lands* as obviously true.
 
-## Formatting — math renders as LaTeX
+Every step is a **predict → teach → check** cycle:
 
-Everything written in a session is mirrored to him through Obsidian by the `md-log` hook, and Obsidian renders LaTeX natively. So whenever math notation is involved — explanations, questions, quiz options and grading messages, anything — write it in LaTeX instead of plain-text approximations:
+**The prediction (`Predict`) — motivation.** Asked BEFORE you teach the step. Its subject is the NEXT step — not yet taught — so it need not be answerable from what's covered. Its shape is a nudge, not a test: point at the problem with the current state ("this works, but it can't survive X — what has to give?") and let them try to discover the next step themselves. Direct them toward the right territory; reveal nothing more. A prediction they can't fully attempt is fine — the attempt is the point. When it returns, OPEN the teaching by resolving it explicitly: what they predicted, what is actually true, and why — make the correction land on their attempt. Skip the prediction when there's no meaningful next step to anticipate (a wrap-up, a pure repair after a missed check) — your judgment, never a habit.
 
-- Inline math: `$f(x)$`
-- Centered display math: `$$` fenced on its own lines, e.g. `$$\n f(x) \n$$`
+**The step.**
+1. **One step, one fact.** Small enough to be fully understood at once. If it needs two explanations to land, it's two steps.
+2. **Present it for maximal absorption.** The clearest form of *this* step, chosen per step, not by ritual. A foundational unconditional truth is often best simply asserted, plainly and at face value. A derived step is built from what's already held — narrated or drawn out of them. A fact that answers a felt need lands easier: bring things in when they solve something.
+3. **The connection carries itself.** Most connective tissue belongs in the flow — the next fact arriving as the obvious consequence of the last. Make the dependency edge explicit when the connection itself is the lesson; otherwise don't announce the choreography ("now I'll establish X, then connect it to Y"). **Never label turns as plan-node chapters** ("Node 3: …") — the map is their view of the landscape, not the road.
 
-If LaTeX can be used, it should be. Write $f(x) = x^2$, not `f(x) = x^2`.
+**The check (`Check`) — data for you.** Asked AFTER the step's teaching is complete. Every check answers one question: did the idea actually **take**?
+- **Answerable by reasoning from the session** — never require anything they couldn't have gotten from the lesson. A check with no route is a coin flip.
+- **Never just reciting your words back.** Parroting the sentence above is copywork, not evidence.
+- **Prefer problems that apply the knowledge** — a new case, a prediction, an extension. Recall is the fallback, not the habit.
+- **Make confusion nameable** — each wrong option is the answer they'd give under a specific wrong model, so a miss tells you which.
+- **Their answer is signal, not verdict.** A lucky right answer is nothing; a wrong answer on an honest check is gold.
 
-This is also why quiz questions are written to the log *before* the popup appears: a math-heavy question is unreadable as raw `$...$` in the terminal, so he reads it rendered in Obsidian and answers in the terminal. Write the question assuming he's reading the rendered version.
+**Teach first, check second.** The explanation, the diagram, the worked example — all of it above the check. Never fire a check mid-explanation; if a step needs three paragraphs and a diagram, it gets all of them first. (The hook writes the question to the log after your prose, so they read it in order in Obsidian.)
+
+**A miss means the step didn't land**: diagnose (their pick, their confidence, their words), repair, re-check — before anything is built on top. Never build on a step they haven't demonstrated. That is where the session's quality lives: errors surface the moment they're made — small, localized, cheap to fix — instead of three nodes later. And if an answer leaves you unsure where their edge actually sits, re-bracket it with a short run of checks before choosing the next step.
+
+Catch yourself asserting anything they'd have to take on faith: either make its acceptance easy — motivate it, ground it in what's held — or check it before building on it.
+
+Verbosity is overhead, and overhead is not teaching. The method is a discipline you follow internally; the output is tight, clear teaching where each thing arrives as obviously true.
+
+## 5. Ending
+
+**A session pause** (they stop for the day): one or two lines on where they are — no summary dump; the files hold it. Make sure `assessment.md` and `plan.md` reflect what you now know about them, and `last_session` is today.
+
+**The lesson is done** when the goal node has been checked and held — the goal understanding sits inside the structure, obvious because it follows. Then:
+1. Revisit every doubt you flagged during the lesson (core doctrine: accuracy) — resolve or state it.
+2. Set `phase: done` in `assessment.md`.
+3. Run the extraction: follow `.claude/skills/extract/SKILL.md` for this lesson's log, so what was taught enters their graph.
+4. Offer `/practice` on the lesson's ideas — practising later, interleaved with other material, is what makes it come to mind unprompted.

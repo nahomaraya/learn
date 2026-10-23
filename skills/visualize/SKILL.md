@@ -11,14 +11,14 @@ You are the **creative director**. You decide the exact idea and distill it to i
 
 ## When to visualize (and when not to)
 
-This teaching system builds a **dependency graph in the learner's head** — axioms at the root, derived facts hanging off them. A visual is powerful exactly when it makes that structure (or a geometry) visible. Reach for one when:
+This teaching system builds a **dependency graph in the learner's head** — unconditional truths at the root, derived facts hanging off them. A visual is powerful exactly when it makes that structure (or a geometry) visible. Reach for one when:
 
 - The idea is a **structure or relationship**: dependencies, a system with parts and arrows, a flow/pipeline, a sequence of exchanges, a state machine, a tree/hierarchy, a comparison, a containment (what's inside vs outside).
 - The idea is **spatial or geometric**: coordinate geometry, a number line, vectors, a function's shape, a physical arrangement.
 
 Do NOT visualize when prose or a single equation already carries it. A decorative diagram that just restates the sentence next to it adds noise and a chance to be wrong. When in doubt, don't — a missing visual is cheaper than a false one.
 
-**Don't reach for a maker when a fenced block will do.** Obsidian renders ```mermaid blocks natively, so for a quick throwaway sketch — the Phase 2 dependency map, say — just write the fenced source directly in your reply. Use this skill when the picture is load-bearing enough that it must be **verified correct**, or when it needs geometry Mermaid can't lay out. The maker's whole value is the render-and-inspect loop; if you don't need that guarantee, skip the round trip.
+**Don't reach for a maker when a fenced block will do.** Obsidian renders ```mermaid blocks natively, so for a quick ad-hoc sketch just write the fenced source directly in your reply. Use this skill when the picture is load-bearing enough that it must be **verified correct**, or when it needs geometry Mermaid can't lay out. The maker's whole value is the render-and-inspect loop; if you don't need that guarantee, skip the round trip.
 
 ## Choose the maker
 
@@ -42,9 +42,9 @@ Keep the idea intact but trust the maker to compose; if your brief lists more th
 
 The maker runs in an isolated context and knows nothing about the lesson, the learner, or this conversation. Everything it needs must be in the brief.
 
-## Invoke
+## Invoke — fire and forget
 
-Dispatch the maker with the `Agent` tool:
+Dispatch the maker with the `Agent` tool **in the background** (`run_in_background: true` where the tool offers it), say in one line that a diagram is coming, and keep teaching — never stall the lesson waiting for a render. When the result arrives, embed it at the next natural point and, if it lands after the step it illustrates, tie it back in a sentence. Don't fire a `Check` on a step whose diagram is still in flight if the check depends on the picture.
 
 ```
 Agent(subagent_type: "mermaid-maker", prompt: "<your minimal, concrete brief>")

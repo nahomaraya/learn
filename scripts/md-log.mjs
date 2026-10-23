@@ -27,6 +27,11 @@
  * verdict. So the answer callout below is deliberately neutral; the check/cross
  * and the explanation arrive as the assistant prose that follows it.
  *
+ * Plan map: when a Predict/Check question carries `[node: <slug>]`, PreToolUse
+ * also moves `plan.md` (next to the linked log) to that node, and PostToolUse
+ * tells the agent if the slug isn't in the plan. Formatting lives in
+ * lib/md-format.mjs, the plan restyle in lib/plan.mjs.
+ *
  * Append-only. Never blocks a turn: every path exits 0.
  *
  * CLI (used by the /md-log and /md-unlog commands):
@@ -44,6 +49,16 @@ import {
   resolve,
   writeFileSync,
 } from "./_common.mjs"
+import {
+  answerCallouts,
+  assistantBlock,
+  cleanUserText,
+  isGraded,
+  questionCallout,
+  splitNodeTag,
+  userBlock,
+} from "./lib/md-format.mjs"
+import { restylePlan } from "./lib/plan.mjs"
 
 const STATE_PATH = join(CLAUDE_DIR, ".md-log-state.json")
 const QA_TOOL = "AskUserQuestion"
@@ -77,73 +92,6 @@ function append(file, text) {
   } catch {
     // File may have been deleted or locked externally; logging must never throw.
   }
-}
-
-// ── formatting (Obsidian callouts, matching the pi version) ─────────────────
-//
-// Question/answer blocks are fully quoted callouts. User and assistant blocks
-// are a callout HEADER followed by UNQUOTED text — deliberate, and the same
-// trick the pi extension used: lesson prose has to render as normal markdown so
-// that $LaTeX$, mermaid fences and ![[image]] embeds actually render.
-
-function callout(type, title, bodyLines) {
-  const lines = [`> [!${type}] ${title}`]
-  for (const line of bodyLines) lines.push(line.length === 0 ? ">" : `> ${line}`)
-  return lines.join("\n")
-}
-
-const userBlock = (text) => `> [!quote] YOU\n\n${text}`
-const assistantBlock = (text) => `> [!abstract] CLAUDE\n\n${text}`
-
-const isQuiz = (q) => /^quiz\b/i.test(String(q?.header ?? ""))
-
-function questionCallout(q) {
-  const body = []
-  for (const line of String(q.question ?? "").split("\n")) body.push(line)
-  const options = Array.isArray(q.options) ? q.options : []
-  if (options.length > 0) {
-    body.push("")
-    options.forEach((o, i) => body.push(`${i + 1}. ${o.label}`))
-  }
-  const header = String(q.header ?? "").trim()
-  const title = isQuiz(q) ? "Quiz" : header ? `Question — ${header}` : "Question"
-  return callout("question", title, body)
-}
-
-function answerCallout(q, answer) {
-  const picked = Array.isArray(answer) ? answer.join(", ") : String(answer ?? "")
-  if (!picked) {
-    return callout("warning", isQuiz(q) ? "Quiz — no answer" : "Question — no answer", ["(skipped)"])
-  }
-  if (isQuiz(q)) {
-    // "I don't know" is a distinct signal, not a wrong answer — never styled as a failure.
-    const dontKnow = /^i\s*don.?t\s*know$/i.test(picked.trim())
-    return callout(
-      dontKnow ? "question" : "example",
-      dontKnow ? "Quiz — I don't know" : "Quiz — answered",
-      [`Your answer: ${picked}`],
-    )
-  }
-  return callout("example", "Answer", [picked])
-}
-
-// ── transcript flushing ─────────────────────────────────────────────────────
-
-/** Strip harness-injected scaffolding so the log reads as the lesson, not the plumbing. */
-function cleanUserText(text) {
-  return String(text)
-    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")
-    .replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>/g, "")
-    .replace(/<local-command-stderr>[\s\S]*?<\/local-command-stderr>/g, "")
-    .replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>/g, "")
-    .replace(/<command-name>[\s\S]*?<\/command-name>/g, "")
-    .replace(/<command-message>[\s\S]*?<\/command-message>/g, "")
-    .replace(/<command-args>[\s\S]*?<\/command-args>/g, "")
-    .replace(/<skill\b([^>]*)>[\s\S]*?<\/skill>/g, (_m, attrs) => {
-      const name = /name="([^"]+)"/.exec(attrs)?.[1]
-      return `> [!note] SKILL loaded: ${name ?? "(unknown)"}`
-    })
-    .trim()
 }
 
 /**
@@ -236,6 +184,45 @@ function readStdin() {
   })
 }
 
+// ── plan map (lessons/<slug>/plan.md, next to the linked log) ───────────────
+
+const planPath = (logFile) => join(dirname(logFile), "plan.md")
+
+function taggedNodes(questions) {
+  return questions.filter(isGraded).map((q) => splitNodeTag(q.question).node).filter(Boolean)
+}
+
+function movePlan(logFile, questions) {
+  const node = taggedNodes(questions).at(-1)
+  const path = planPath(logFile)
+  if (!node || !existsSync(path)) return
+  try {
+    const before = readFileSync(path, "utf8")
+    const { text, known } = restylePlan(before, node)
+    if (known && text !== before) writeFileSync(path, text, "utf8")
+  } catch {
+    // A locked or half-written plan must never block a turn.
+  }
+}
+
+function unknownNodes(logFile, questions) {
+  const path = planPath(logFile)
+  if (!existsSync(path)) return []
+  try {
+    const text = readFileSync(path, "utf8")
+    return taggedNodes(questions).filter((n) => !restylePlan(text, n).known)
+  } catch {
+    return []
+  }
+}
+
+/** Feed a note back to the agent (PostToolUse additionalContext). */
+function warn(message) {
+  process.stdout.write(
+    JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: `md-log: ${message}` } }),
+  )
+}
+
 async function hook() {
   const raw = await readStdin()
   let ev
@@ -266,12 +253,19 @@ async function hook() {
   if (event === "PreToolUse" && ev.tool_name === QA_TOOL) {
     // Flush FIRST so prose written before the question stays above it.
     flush(entry, ev.transcript_path)
-    for (const q of ev.tool_input?.questions ?? []) append(entry.file, questionCallout(q))
+    for (const q of ev.tool_input?.questions ?? []) {
+      const block = questionCallout(q)
+      if (block) append(entry.file, block)
+    }
+    // Move the plan map BEFORE the popup too, so Obsidian shows where we are.
+    movePlan(entry.file, ev.tool_input?.questions ?? [])
   } else if (event === "PostToolUse" && ev.tool_name === QA_TOOL) {
     const res = ev.tool_response ?? {}
     const answers = res.answers ?? {}
     const questions = res.questions ?? ev.tool_input?.questions ?? []
-    for (const q of questions) append(entry.file, answerCallout(q, answers[q.question]))
+    for (const block of answerCallouts(questions, answers)) append(entry.file, block)
+    const unknown = unknownNodes(entry.file, questions)
+    if (unknown.length) warn(`plan.md has no node ${unknown.map((n) => `"${n}"`).join(", ")} — the plan map did not move. Use a slug from the plan's mermaid block, or re-write plan.md if the structure changed.`)
   } else if (event === "Stop") {
     flush(entry, ev.transcript_path)
   }
